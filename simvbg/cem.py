@@ -49,13 +49,12 @@ class CEMConfig:
     beta_init_beta: float = 1.0
 
     # Beta update sharpness (alpha+beta); higher = more peaked
-    beta_concentration: float = 10.0  # you can tune this
-
+    beta_concentration: float = 10.0  # tune
     # Avoid degenerate p_hat=0/1
     p_clip: Tuple[float, float] = (0.05, 0.95)
 
     # Whether to binarize Beta samples (your note)
-    binarize_booleans: bool = True  # if False, you could encode “degree” traits later
+    binarize_booleans: bool = True  # if False, encode “degree” traits later
 
 
 @dataclass
@@ -76,7 +75,6 @@ class TraitSpace:
 
         traits = [f"{age} years old"]
         for name, v in zip(self.boolean_trait_names, bools):
-            # v expected 0/1 (or float in [0,1] if you later choose)
             if int(round(float(v))) == 1:
                 traits.append(name)
         return traits
@@ -141,11 +139,7 @@ class TraitDistribution:
 
 def default_harm_score_fn(sim_out: Dict[str, Any]) -> float:
     """
-    Placeholder. You said you’ll add the judge later.
-    This returns 0.0 always (so CEM won’t move).
-    Replace with something like:
-      - run a toxicity model on assistant messages
-      - or use your rubric-based judge
+    Placeholder. 
     """
     return 0.0
 

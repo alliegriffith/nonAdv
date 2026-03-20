@@ -1,1 +1,0 @@
-F00011356-WVS_Cross-National_Wave_7_csv_v6_0

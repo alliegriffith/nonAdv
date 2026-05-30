@@ -35,6 +35,8 @@ class HFClient:
             use_fast=True,
             trust_remote_code=cfg.trust_remote_code,
         )
+        
+        self.tokenizer.padding_side = "left"
 
         torch_dtype = DTYPE_MAP.get(cfg.dtype, None)
         kwargs = {}
@@ -74,19 +76,51 @@ class HFClient:
         inputs = self.tokenizer(prompt, return_tensors="pt")
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
 
+    #     out = self.model.generate(
+    #         **inputs,
+    #         max_new_tokens=gen.max_new_tokens,
+    #         max_length=None,
+    #         do_sample=gen.do_sample,
+    #         temperature=gen.temperature,
+    #         top_p=gen.top_p,
+    #         repetition_penalty=gen.repetition_penalty,
+    #         pad_token_id=self.tokenizer.pad_token_id,
+    #         eos_token_id=self.tokenizer.eos_token_id,
+    #     )
+        gen_kwargs = {
+            "max_new_tokens": gen.max_new_tokens,
+            "do_sample": bool(gen.do_sample),
+            "repetition_penalty": float(gen.repetition_penalty),
+            "pad_token_id": self.tokenizer.pad_token_id,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "remove_invalid_values": True,
+            "renormalize_logits": True,
+        }
+
+        if gen.do_sample:
+            gen_kwargs.update({
+                "temperature": max(float(gen.temperature), 1e-5),
+                "top_p": float(gen.top_p),
+            })
+
         out = self.model.generate(
             **inputs,
-            max_new_tokens=gen.max_new_tokens,
-            max_length=None,
-            do_sample=gen.do_sample,
-            temperature=gen.temperature,
-            top_p=gen.top_p,
-            repetition_penalty=gen.repetition_penalty,
-            pad_token_id=self.tokenizer.pad_token_id,
-            eos_token_id=self.tokenizer.eos_token_id,
+            **gen_kwargs,
         )
 
         # Decode only the newly generated tokens
         gen_tokens = out[0][inputs["input_ids"].shape[-1]:]
-        text = self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
+        try:
+            text = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+        except TypeError:
+            text = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
         return text.strip()

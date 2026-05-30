@@ -3,4 +3,5 @@ torch>=2.2.0
 accelerate>=0.30.0
 sentencepiece
 protobuf
-
+matplotlib
+scipy

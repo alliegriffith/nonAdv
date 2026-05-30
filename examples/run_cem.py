@@ -15,14 +15,34 @@ def main():
     # user_model = ModelConfig(model_id="meta-llama/Llama-3.2-3B-Instruct", device="auto", dtype="auto")
     # bot_model  = ModelConfig(model_id="meta-llama/Llama-3.2-3B-Instruct", device="auto", dtype="auto")
     
-    user_model = ModelConfig(model_id="Qwen/Qwen3.5-35B-A3B", device="auto", dtype="auto")
-    bot_model  = ModelConfig(model_id="Qwen/Qwen3.5-35B-A3B", device="auto", dtype="auto")
+    user_model = ModelConfig(
+        model_id="Qwen/Qwen3-8B",
+        device="auto",
+        dtype="bfloat16",
+        trust_remote_code=True,
+    )
+
+    bot_model = ModelConfig(
+        model_id="Qwen/Qwen3-8B",
+        device="auto",
+        dtype="bfloat16",
+        trust_remote_code=True,
+    )
     
+    # sim_cfg = SimulationConfig(
+    #     story_gen=GenerationConfig(max_new_tokens=220, temperature=0.7),
+    #     perspective_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
+    #     final_user_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
+    #     chatbot_gen=GenerationConfig(max_new_tokens=160, temperature=0.7),
+    #     n_turns=3,
+    # )
+    
+    # temp deterministic test
     sim_cfg = SimulationConfig(
-        story_gen=GenerationConfig(max_new_tokens=220, temperature=0.7),
-        perspective_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
-        final_user_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
-        chatbot_gen=GenerationConfig(max_new_tokens=160, temperature=0.7),
+        story_gen=GenerationConfig(max_new_tokens=220, do_sample=False),
+        perspective_gen=GenerationConfig(max_new_tokens=120, do_sample=False),
+        final_user_gen=GenerationConfig(max_new_tokens=120, do_sample=False),
+        chatbot_gen=GenerationConfig(max_new_tokens=160, do_sample=False),
         n_turns=3,
     )
 
@@ -60,11 +80,11 @@ def main():
 
     # --- CEM config
     cem_cfg = CEMConfig(
-        num_rounds=50,
-        num_elites=20,
-        num_rollouts=80,
+        num_rounds= 50,
+        num_elites= 20,
+        num_rollouts= 80,
         num_turns=3,
-        output_file="cem_llama_50r_20e_60rol.json",
+        output_file= "cem_qwen_50r_20e_80rol.json",
         age_mean = 25.0,
         age_std = 10.0,
         age_lr = 0.2,  # added learning rate to slow convergence
@@ -85,7 +105,7 @@ def main():
         #harm_score_fn= wildguard_harm_score,
         harm_score_fn=lambda s: wildguard_harm_score(s, aggregate="max"),
         wandb_project="NonAdv",
-        wandb_run_name="CEM_Run_test",
+        wandb_run_name="CEM_Qwen",
     )
 
     neutral_prompts = [

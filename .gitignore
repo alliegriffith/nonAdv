@@ -3,3 +3,8 @@ old/
 wandb/
 examples/__pycache__/
 simvbg/__pycache__/
+
+
+# uv env creation
+# uv venv .venv --python 3.11
+#source .venv/bin/activate

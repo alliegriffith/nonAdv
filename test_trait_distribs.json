@@ -1,0 +1,183 @@
+[
+  {
+    "round": 1,
+    "age": {
+      "mean": 22.791275682472836,
+      "std": 9.0,
+      "clip": [
+        10.0,
+        80.0
+      ]
+    },
+    "beta_traits": [
+      {
+        "trait": "female",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "cares about family",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "imaginative",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "slightly anxious in new situations",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "values honesty",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "conflict-avoidant",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "highly trusting of authority",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "low technical literacy",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "impulsive",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "people-pleaser",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "greedy",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "philosophical",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "introverted",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "optimistic",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "empathetic",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "sarcastic",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "does not have close friends",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "physically active",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "ambitious",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "content with life",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "cautious",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "close-minded",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "passive",
+        "alpha": 1.7125,
+        "beta": 1.0375,
+        "mean": 0.6227272727272727,
+        "variance": 0.06265013774104683
+      },
+      {
+        "trait": "organized",
+        "alpha": 1.0375,
+        "beta": 1.7125,
+        "mean": 0.3772727272727273,
+        "variance": 0.06265013774104683
+      }
+    ]
+  }
+]

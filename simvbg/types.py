@@ -17,13 +17,26 @@ class Message:
 
 Conversation = List[Message]
 
+# old - hardcoded, local only
+# @dataclass
+# class ModelConfig:
+#     # HF model id like "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+#     model_id: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+#     device: str = "auto"          # "auto", "cuda", "cpu", "cuda:0", etc.
+#     dtype: str = "auto"           # "auto", "float16", "bfloat16", "float32"
+#     trust_remote_code: bool = False
+
+# new - supports remote serving with different backends, plus local
 @dataclass
 class ModelConfig:
-    # HF model id like "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    model_id: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    device: str = "auto"          # "auto", "cuda", "cpu", "cuda:0", etc.
-    dtype: str = "auto"           # "auto", "float16", "bfloat16", "float32"
+    model_id: str
+    device: str = "auto"
+    dtype: str = "auto"
     trust_remote_code: bool = False
+
+    backend: str = "hf"  # "hf" or "openai_compatible"
+    base_url: Optional[str] = None
+    api_key: str = "EMPTY"
 
 @dataclass
 class GenerationConfig:

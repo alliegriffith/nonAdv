@@ -8,43 +8,72 @@ from simvbg.cem import CEMConfig, TraitSpace, CEMRunner
 from simvbg.wildguard_scorer import wildguard_harm_score
 
 def main():
+    DGXSparks = 2
     
+    #---------------------------------------------old llama local only---------------------------------------------
     # user_model = ModelConfig(model_id="TinyLlama/TinyLlama-1.1B-Chat-v1.0", device="auto", dtype="auto")
     # bot_model  = ModelConfig(model_id="TinyLlama/TinyLlama-1.1B-Chat-v1.0", device="auto", dtype="auto")
 
     # user_model = ModelConfig(model_id="meta-llama/Llama-3.2-3B-Instruct", device="auto", dtype="auto")
     # bot_model  = ModelConfig(model_id="meta-llama/Llama-3.2-3B-Instruct", device="auto", dtype="auto")
+    #------------------------------------------------------------------------------------------------------------
     
-    user_model = ModelConfig(
-        model_id="Qwen/Qwen3-8B",
-        device="auto",
-        dtype="bfloat16",
-        trust_remote_code=True,
-    )
-
-    bot_model = ModelConfig(
-        model_id="Qwen/Qwen3-8B",
-        device="auto",
-        dtype="bfloat16",
-        trust_remote_code=True,
-    )
-    
-    # sim_cfg = SimulationConfig(
-    #     story_gen=GenerationConfig(max_new_tokens=220, temperature=0.7),
-    #     perspective_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
-    #     final_user_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
-    #     chatbot_gen=GenerationConfig(max_new_tokens=160, temperature=0.7),
-    #     n_turns=3,
+    # ------------------------old qwen, local only------------------------
+    # user_model = ModelConfig(
+    #     model_id="Qwen/Qwen3-8B",
+    #     device="auto",
+    #     dtype="bfloat16",
+    #     trust_remote_code=True,
     # )
+
+    # bot_model = ModelConfig(
+    #     model_id="Qwen/Qwen3-8B",
+    #     device="auto",
+    #     dtype="bfloat16",
+    #     trust_remote_code=True,
+    # )
+    #-----------------------------------------------------------------------
     
-    # temp deterministic test
+    # ------------------------remote, same user/bot------------------------
+    # TODO: make flexible for diff and same user/bot models - HARDCODED FOR NOW
+    if (DGXSparks == 2):
+        user_model = ModelConfig(
+            model_id="Qwen/Qwen3-8B",
+            backend="openai_compatible",
+            base_url="http://jacksonhole:8001/v1",
+            api_key="EMPTY",
+            dtype="bfloat16",
+            trust_remote_code=True,
+        )
+
+        bot_model = user_model
+    else:
+        user_model = ModelConfig(
+            model_id="Qwen/Qwen3-8B",
+            device="auto",
+            dtype="bfloat16",
+            trust_remote_code=True,
+        )
+
+        bot_model = user_model
+    #-----------------------------------------------------------------------
+    
     sim_cfg = SimulationConfig(
-        story_gen=GenerationConfig(max_new_tokens=220, do_sample=False),
-        perspective_gen=GenerationConfig(max_new_tokens=120, do_sample=False),
-        final_user_gen=GenerationConfig(max_new_tokens=120, do_sample=False),
-        chatbot_gen=GenerationConfig(max_new_tokens=160, do_sample=False),
+        story_gen=GenerationConfig(max_new_tokens=220, temperature=0.7),
+        perspective_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
+        final_user_gen=GenerationConfig(max_new_tokens=120, temperature=0.7),
+        chatbot_gen=GenerationConfig(max_new_tokens=160, temperature=0.7),
         n_turns=3,
     )
+    
+    # temp deterministic test
+    # sim_cfg = SimulationConfig(
+    #     story_gen=GenerationConfig(max_new_tokens=220, do_sample=False),
+    #     perspective_gen=GenerationConfig(max_new_tokens=120, do_sample=False),
+    #     final_user_gen=GenerationConfig(max_new_tokens=120, do_sample=False),
+    #     chatbot_gen=GenerationConfig(max_new_tokens=160, do_sample=False),
+    #     n_turns=3,
+    # )
 
     sim = SimVBGSimulator(user_model_cfg=user_model, chatbot_model_cfg=bot_model, sim_cfg=sim_cfg)
 
@@ -103,7 +132,9 @@ def main():
         trait_space=trait_space,
         cfg=cem_cfg,
         #harm_score_fn= wildguard_harm_score,
-        harm_score_fn=lambda s: wildguard_harm_score(s, aggregate="max"),
+        # for smoke test remove wildguard
+        #harm_score_fn=  lambda s: 0.0,
+        harm_score_fn =  lambda s: wildguard_harm_score(s, aggregate="max"),
         wandb_project="NonAdv",
         wandb_run_name="CEM_Qwen",
     )

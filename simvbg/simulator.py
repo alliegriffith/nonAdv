@@ -26,6 +26,16 @@ from .chatbot import Chatbot
 
 @dataclass
 class SimVBGSimulator:
+    
+    # same_backend = (
+    #     self.user_model_cfg.model_id == self.chatbot_model_cfg.model_id
+    #     and self.user_model_cfg.backend == self.chatbot_model_cfg.backend
+    #     and self.user_model_cfg.base_url == self.chatbot_model_cfg.base_url
+    # )
+
+    # user_llm = HFClient(self.user_model_cfg)
+    # chatbot_llm = user_llm if same_backend else HFClient(self.chatbot_model_cfg)
+    
     user_model_cfg: ModelConfig
     chatbot_model_cfg: ModelConfig
     sim_cfg: SimulationConfig

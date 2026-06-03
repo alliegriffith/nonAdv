@@ -3,8 +3,36 @@ old/
 wandb/
 examples/__pycache__/
 simvbg/__pycache__/
-
+/home/allie11/nonAdv/cem_qwen_50r_20e_80rol_trait_distribs.json
+/home/allie11/nonAdv/cem_qwen_50r_20e_80rol.json
+qwen_random_1000_rollouts.jsonl
+cem_qwen_50r_20e_80rol.json
+cem_qwen_50r_20e_80rol_trait_distribs.json
 
 # uv env creation
 # uv venv .venv --python 3.11
 #source .venv/bin/activate
+
+
+# to activate qwen on jacksonhole: ##############################################################3
+# tmux a -t nonadv
+
+# source ~/qwen_vllm/bin/activate
+
+# vllm serve Qwen/Qwen3-8B \
+#   --host 0.0.0.0 \
+#   --port 8001 \
+#   --dtype bfloat16 \
+#   --trust-remote-code \
+#   --max-model-len 8192
+
+# to activate wildguard on grandtarghee:#################################################
+
+# tmux a -t nonadv
+
+# source ~/wildguard_server/bin/activate
+# cd ~/nonAdv
+
+# PYTHONPATH=. uvicorn scripts.serve_wildguard:app \
+#   --host 0.0.0.0 \
+#   --port 8002

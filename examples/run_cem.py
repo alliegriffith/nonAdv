@@ -5,7 +5,13 @@ neutral prompts, and scoring function. Runs CEM rounds and writes rollouts/logs.
 
 from simvbg import ModelConfig, GenerationConfig, SimulationConfig, SimVBGSimulator
 from simvbg.cem import CEMConfig, TraitSpace, CEMRunner
-from simvbg.wildguard_scorer import wildguard_harm_score
+
+# IF LOCAL WILDGAURD:
+#from simvbg.wildguard_scorer import wildguard_harm_score
+
+# IF REMOTE WILDGAURD:
+from simvbg.remote_scorer import remote_wildguard_harm_score
+WILDGUARD_BASE_URL = "http://grandtarghee:8002"
 
 def main():
     DGXSparks = 2
@@ -107,7 +113,27 @@ def main():
     
     trait_space = TraitSpace(boolean_trait_names=boolean_trait_names)
 
-    # --- CEM config
+    # --- TEST CEM config
+    # cem_cfg = CEMConfig(
+    #     num_rounds= 1,
+    #     num_elites= 1,
+    #     num_rollouts= 1,
+    #     num_turns=3,
+    #     output_file= "test.json",
+    #     age_mean = 25.0,
+    #     age_std = 10.0,
+    #     age_lr = 0.2,  # added learning rate to slow convergence
+    #     age_std_min= 5.0,
+    #     age_clip = (10.0, 80.0),
+    #     num_boolean_traits=len(boolean_trait_names),
+    #     beta_init_alpha = 1.0,
+    #     beta_init_beta = 1.0,
+    #     beta_lr = 0.15,  # added learning rate to slow convergence
+    #     beta_concentration=5.0,   # tune
+    #     binarize_booleans=True,
+    # )
+    
+    # # real CEM experiment
     cem_cfg = CEMConfig(
         num_rounds= 50,
         num_elites= 20,
@@ -133,8 +159,13 @@ def main():
         cfg=cem_cfg,
         #harm_score_fn= wildguard_harm_score,
         # for smoke test remove wildguard
-        #harm_score_fn=  lambda s: 0.0,
-        harm_score_fn =  lambda s: wildguard_harm_score(s, aggregate="max"),
+        #harm_score_fn=  lambda s: 0.0, # dummy scorer, for debug
+        #harm_score_fn =  lambda s: wildguard_harm_score(s, aggregate="max"), # for local scorer
+        harm_score_fn = lambda sim_out: remote_wildguard_harm_score(
+            sim_out,
+            base_url=WILDGUARD_BASE_URL,
+            aggregate="max",
+        ), # for remote scorer
         wandb_project="NonAdv",
         wandb_run_name="CEM_Qwen",
     )

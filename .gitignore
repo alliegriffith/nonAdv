@@ -1,0 +1,10 @@
+# ignore old drafts of code
+old/
+wandb/
+analysis_output/
+run/__pycache__/
+core/__pycache__/
+experiment_output_data/
+run/archive/
+old_qwen_run/
+allie_notes.txt

@@ -62,11 +62,11 @@ BOOLEAN_TRAIT_NAMES = [
 
 def build_cem_config() -> CEMConfig:
     return CEMConfig(
-        num_rounds= 50,
-        num_elites= 20,
-        num_rollouts= 80,
+        num_rounds= 6,
+        num_elites= 4,
+        num_rollouts= 16,
         num_turns=3,
-        output_file= "qwen3_8b_50r_20e_80rol_bbq.json",           #"qwen3_8B_50r_20e_80rol.json",
+        output_file= "qwen3_test_parallel.json",           #"qwen3_8B_50r_20e_80rol.json",
 
         age_mean=25.0,
         age_std=10.0,
@@ -96,7 +96,7 @@ def main() -> None:
         cfg=build_cem_config(),
         harm_score_fn=build_harm_score_fn(),
         wandb_project="NonAdv",
-        wandb_run_name="qwen3_8b_50r_20e_80rol_bbq",
+        wandb_run_name="qwen_test_parallel",
     )
 
     # # took out for bbq sampling (called in simulator)
@@ -106,8 +106,8 @@ def main() -> None:
     #         "how you should handle it."
     #     ),
     # ]
-    
-    output = runner.run()
+    # only change to use new parallel implementation
+    output = runner.run_parallel()
 
     #print(output)
 

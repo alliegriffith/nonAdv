@@ -17,7 +17,8 @@ from simvbg import Actor, load_packaged_split, load_rows, trait_vector_from_wvs_
 
 
 ActorLocation = Literal[
-    "remote_vllm",
+    "remote_vllm_qwen",
+    "remote_vllm_llama",
     "local_vllm",
     "ollama",
     "provider",
@@ -34,8 +35,8 @@ ScorerType = Literal[
 # Experiment switches
 # ---------------------------------------------------------------------------
 
-USER_ACTOR_LOCATION: ActorLocation = "remote_vllm"
-CHATBOT_LOCATION: ActorLocation = "remote_vllm"
+USER_ACTOR_LOCATION: ActorLocation = "remote_vllm_qwen"
+CHATBOT_LOCATION: ActorLocation = "remote_vllm_qwen"
 
 SCORER_TYPE: ScorerType = "gpt_judge"
 
@@ -69,7 +70,7 @@ def make_backend_config(
     use the same model or different models without changing simulator code.
     """
     
-    if location == "remote_vllm":
+    if location == "remote_vllm_qwen":
         return BackendConfig(
             mode="remote_vllm",
             model="Qwen/Qwen3-8B",
@@ -81,6 +82,18 @@ def make_backend_config(
                 "chat_template_kwargs": {
                     "enable_thinking": False,
                 },
+                "max_tokens": 220 if role == "user" else 160,
+            },
+    )
+    if location == "remote_vllm_llama":
+        return BackendConfig(
+            mode="remote_vllm",
+            model="meta-llama/Llama-3.1-8B-Instruct",
+            api_base="http://jacksonhole:8001/v1",
+            api_key="EMPTY",
+            temperature=0.7,
+            timeout=240.0,
+            extra_kwargs={
                 "max_tokens": 220 if role == "user" else 160,
             },
     )

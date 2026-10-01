@@ -20,6 +20,8 @@ from scipy.stats import beta as beta_dist
 
 from core.wildguard_scorer import wildguard_harm_score
 from core.data import sample_neutral_prompt
+# new for parallel
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import wandb
@@ -388,6 +390,268 @@ class CEMRunner:
             wandb.finish()
 
         print(f"\nCEM complete. All rollouts saved to: {self.cfg.output_file}")
+        return {
+            "output_file": self.cfg.output_file,
+            "final_distribution": self.dist.state_dict(),
+        }
+        
+    # attempt to have 16 rollouts run in parallel, instead of sequentially.
+    def run_parallel(self, neutral_prompts: Optional[List[str]] = None, max_concurrent_rollouts: Optional[int] = 16) -> Dict[str, Any]:
+
+        # loop through all rounds sequentially
+        for r in range(self.cfg.num_rounds):
+            round_idx = r + 1
+            round_rollouts: List[RolloutRecord] = []
+
+            print("\n" + "=" * 60)
+            print(f"  ROUND {round_idx} / {self.cfg.num_rounds}")
+            print("=" * 60)
+
+            # ------------------------------------------------------------
+            # Sample ALL rollout inputs before starting concurrent execution.
+            # ------------------------------------------------------------
+            rollout_inputs = []
+
+            for k in range(self.cfg.num_rollouts):
+                rollout_idx = k + 1
+
+                vec = self.dist.sample()
+                traits = self.trait_space.vector_to_trait_strings(vec)
+                used_neutral_prompt = sample_neutral_prompt()
+
+                rollout_inputs.append(
+                    {
+                        "rollout_idx": rollout_idx,
+                        "vec": vec,
+                        "traits": traits,
+                        "neutral_prompt": used_neutral_prompt,
+                    }
+                )
+            print("sampled all rollout inputs, now running rollouts in parallel...")
+            # ------------------------------------------------------------
+            # Function executed by each worker.
+            #
+            # Each worker performs ONE complete SimVBG rollout and scores it.
+            # ------------------------------------------------------------
+            def run_one_rollout(rollout_input):
+                rollout_idx = rollout_input["rollout_idx"]
+                vec = rollout_input["vec"]
+                traits = rollout_input["traits"]
+                used_neutral_prompt = rollout_input["neutral_prompt"]
+
+                sim_out = self.simulator.run(
+                    traits=traits,
+                    neutral_prompt=used_neutral_prompt,
+                )
+
+                score = float(self.harm_score_fn(sim_out))
+
+                return RolloutRecord(
+                    round=round_idx,
+                    rollout=rollout_idx,
+                    trait_vector=vec,
+                    traits=traits,
+                    neutral_prompts=used_neutral_prompt,
+                    score=score,
+                    sim_out=sim_out,
+                )
+
+            # ------------------------------------------------------------
+            # Submit all 80 jobs.
+            #
+            # Only 16 are allowed to run at once.
+            # Whenever one finishes, the next waiting rollout starts.
+            # ------------------------------------------------------------
+            with ThreadPoolExecutor(max_workers=max_concurrent_rollouts) as executor:
+
+                future_to_rollout = {
+                    executor.submit(run_one_rollout, rollout_input):
+                        rollout_input["rollout_idx"]
+                    for rollout_input in rollout_inputs
+                }
+
+                # Results arrive in completion order, not rollout-number order.
+                for future in as_completed(future_to_rollout):
+                    rollout_idx = future_to_rollout[future]
+
+                    try:
+                        rec = future.result()
+                        round_rollouts.append(rec)
+
+                        print(
+                            f"  Rollout "
+                            f"{rollout_idx}/{self.cfg.num_rollouts} "
+                            f"complete — score={rec.score:.6e}"
+                        )
+
+                    except Exception as exc:
+                        print(
+                            f"  Rollout "
+                            f"{rollout_idx}/{self.cfg.num_rollouts} "
+                            f"FAILED: {exc}"
+                        )
+                        raise
+
+            print("All rollouts complete for this round.")
+            # Put rollouts back into rollout-number order.
+            round_rollouts.sort(key=lambda x: x.rollout)
+
+            # ------------------------------------------------------------
+            # Select elites
+            # ------------------------------------------------------------
+            # sorting rollouts by score, descending, and taking the top Y (highest Y scores)
+            round_rollouts_sorted = sorted(
+                round_rollouts,
+                key=lambda x: x.score,
+                reverse=True,
+            )
+
+            elites = round_rollouts_sorted[: self.cfg.num_elites]
+
+            all_scores = [rec.score for rec in round_rollouts]
+            elite_scores = [e.score for e in elites]
+
+            mean_elite = (
+                float(np.mean(elite_scores))
+                if elite_scores
+                else float("nan")
+            )
+
+            print(f"\n  Elite mean score: {mean_elite:.4f}")
+
+            # ------------------------------------------------------------
+            # Update CEM distribution
+            # ------------------------------------------------------------
+            elite_vecs = [e.trait_vector for e in elites]
+            self.dist.update_from_elites(elite_vecs)
+
+            print(
+                f"  Updated age: "
+                f"mean={self.dist.age_mean:.2f}, "
+                f"std={self.dist.age_std:.2f}"
+            )
+
+            a0, b0 = self.dist.beta_params[0]
+
+            print(
+                f"  Updated beta[0]: "
+                f"alpha={a0:.3f}, beta={b0:.3f}"
+            )
+
+            # ------------------------------------------------------------
+            # Log trait distribution snapshot
+            # ------------------------------------------------------------
+            beta_params = self.dist.beta_params
+            beta_trait_distribs = []
+
+            # looping through all boolean traits to compute mean and variance for logging
+            for i, trait_name in enumerate(
+                self.trait_space.boolean_trait_names
+            ):
+                alpha = float(beta_params[i, 0])
+                beta = float(beta_params[i, 1])
+
+                # mean of beta distribution: alpha / (alpha + beta)
+                mean = alpha / (alpha + beta)
+                # var of beta distribution: alpha*beta / ((alpha+beta)^2 * (alpha+beta+1))
+                variance = (
+                    alpha * beta
+                ) / (
+                    ((alpha + beta) ** 2)
+                    * (alpha + beta + 1.0)
+                )
+
+                beta_trait_distribs.append(
+                    {
+                        "trait": trait_name,
+                        "alpha": alpha,
+                        "beta": beta,
+                        "mean": float(mean),
+                        "variance": float(variance),
+                    }
+                )
+
+            trait_distrib_snapshot = {
+                "round": round_idx,
+                "age": {
+                    "mean": float(self.dist.age_mean),
+                    "std": float(self.dist.age_std),
+                    "clip": list(self.cfg.age_clip),
+                },
+                "beta_traits": beta_trait_distribs,
+            }
+
+            self.trait_distribs.append(
+                trait_distrib_snapshot
+            )
+            # each round we write the new trait distribs to a JSON file
+            with open(
+                self.trait_distribs_file,
+                "w",
+            ) as f:
+                json.dump(
+                    self.trait_distribs,
+                    f,
+                    indent=2,
+                )
+
+            # ------------------------------------------------------------
+            # W&B logging
+            # ------------------------------------------------------------
+            if self.wandb_enabled:
+                wandb.log(
+                    {
+                        "mean_elite_score": mean_elite,
+                        "age_mean": self.dist.age_mean,
+                        "age_std": self.dist.age_std,
+                        "max_score": float(np.max(all_scores)),
+                        "mean_score": float(np.mean(all_scores)),
+                        "std_score": float(np.std(all_scores)),
+                        "min_score": float(np.min(all_scores)),
+                    },
+                    step=round_idx,
+                )
+
+                self._log_beta_pdf_plot(
+                    round_idx,
+                    every=5,
+                )
+
+            # ------------------------------------------------------------
+            # every round we save the rollouts to a json file
+            # ------------------------------------------------------------
+            for rec in round_rollouts:
+                self.all_rollouts.append(
+                    {
+                        "round": rec.round,
+                        "rollout": rec.rollout,
+                        "trait_vector": rec.trait_vector,
+                        "traits": rec.traits,
+                        "neutral_prompts": rec.neutral_prompts,
+                        "score": rec.score,
+                        "sim_out": rec.sim_out,
+                    }
+                )
+
+            with open(
+                self.cfg.output_file,
+                "w",
+            ) as f:
+                json.dump(
+                    self.all_rollouts,
+                    f,
+                    indent=2,
+                )
+
+        if self.wandb_enabled:
+            wandb.finish()
+
+        print(
+            f"\nCEM complete. "
+            f"All rollouts saved to: "
+            f"{self.cfg.output_file}"
+        )
+
         return {
             "output_file": self.cfg.output_file,
             "final_distribution": self.dist.state_dict(),

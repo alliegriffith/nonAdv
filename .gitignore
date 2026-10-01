@@ -8,3 +8,4 @@ experiment_output_data/
 run/archive/
 old_qwen_run/
 allie_notes.txt
+*.json

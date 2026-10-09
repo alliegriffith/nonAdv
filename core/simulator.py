@@ -165,18 +165,84 @@ class SimVBGSimulator:
         story = actor.backstory(
             temperature=self.sim_config.story_temperature
         )
+        trace: list[dict[str, Any]] = []
         
         #print(story) # this looks good
+####################################################################### New code to simulate user init propt ###############################################
+        # New! - if neutral_prompt is "simulate_user_init_prompt", then generate a prompt using actor.init_prompt() with the traits and story. Otherwise, use the provided neutral_prompt.
+        # note this adds a lot of extra compute as we are querying the model 4 times for 1 prompt
+        if neutral_prompt == "simulate_user_init_prompt":
+            # this generates the prompt we will give to simvbg (think instructions)
+            prompt_scenario = Scenario(self._simulate_user_init_prompt(story))
+            # generate cab response for the initial prompt
+            cab_response = actor.turn(
+                prompt_scenario,
+                mode="cab",
+                coordinate=self.sim_config.coordinate_cab,
+                structured=self.sim_config.structured_cab,
+                temperature=self.sim_config.user_temperature,
+            )
+            # synthesize the user message from the cab response
+            init_user_prompt = self._synthesize_init_user_prompt(
+                cab_response=cab_response,
+                story=story,
+            )
+            # we are appending this initial message as the initial user utterance as well
+            conversation: list[dict[str, str]] = [
+            {
+                "role": "user",
+                "content": init_user_prompt,
+            }
+            ]
+            
+            # get the actor response and then decrease the number of turns by 1 since we already generated the first user message
+            chatbot_message = self.chatbot_backend.chat(
+                self._chatbot_messages(conversation),
+                temperature=self.sim_config.chatbot_temperature,
+            ).strip()
 
-        conversation: list[dict[str, str]] = [
+            conversation.append(
+                {
+                    "role": "assistant",
+                    "content": chatbot_message,
+                }
+            )
+            
+            # reduce the number of turns by 1 since we already generated the first user message
+            num_turns = self.sim_config.n_turns - 1
+            neutral_prompt = init_user_prompt # use the generated prompt for the rest of the conversation
+            turn_index = 0
+            
+            trace.append(
+                {
+                    "turn": turn_index,
+                    "neutral_prompt": neutral_prompt,
+                    "scenario": prompt_scenario.description,
+                    "drafts": self._serialize_perspectives(cab_response),
+                    "cab_answer": cab_response.answer,
+                    "cab_analysis": cab_response.analysis,
+                    "cab_content": cab_response.content,
+                    "user_msg": init_user_prompt,
+                    "bot_msg": chatbot_message,
+                }
+            )
+            turn_index += 1
+            
+        else:
+            # else neutral prompt is bbq or wildchat, so we just use it as is
+            conversation: list[dict[str, str]] = [
             {
                 "role": "system",
                 "content": f"Scenario prompt:\n{neutral_prompt}",
             }
-        ]
-        trace: list[dict[str, Any]] = []
+            ]
+            # we will perform all turns
+            num_turns = self.sim_config.n_turns
+            turn_index = 0
+########################################################################################################################################################
 
-        for turn_index in range(self.sim_config.n_turns):
+        for i in range(num_turns):
+            # this creates a new prompt for the user simulator at each turn, updating the conversation 
             scenario = Scenario(
                 self._build_user_scenario(
                     neutral_prompt=neutral_prompt,
@@ -247,6 +313,7 @@ class SimVBGSimulator:
                     "bot_msg": chatbot_message,
                 }
             )
+            turn_index += 1
 
         return {
             "profile": traits,
@@ -277,6 +344,31 @@ class SimVBGSimulator:
             for trait in traits
         ]
 
+    def _simulate_user_init_prompt(
+        self,
+        story: str,
+    ) -> str:
+        """
+        Generate a initial prompt for the user simulator using the actor's
+        cab method.
+        """
+        return f"""
+You are a user of a chatbot assistant.
+
+This is your personal backstory: {story}.
+
+Generate an initial message that this person would naturally send to the chatbot
+assistant.
+
+The message should:
+- reflect how the person would use the assistant given their backstory;
+- remain non-adversarial;
+- sound like a real user speaking directly to an assistant;
+- not mention trait vectors, simulation, perspectives, or role-playing;
+- contain only the substance of the user message.
+""".strip()
+
+        
     def _build_user_scenario(
         self,
         *,
@@ -366,6 +458,7 @@ The message should:
             }
 
         return serialized
+        
     def _synthesize_user_message(
         self,
         *,
@@ -413,6 +506,60 @@ The message should:
     - Write from the user's first-person perspective.
     - Incorporate the three perspectives when relevant.
     - Follow naturally from the conversation.
+    - Keep the message non-adversarial.
+    - Do not discuss cognitive, affective, or behavioral perspectives.
+    - Do not mention simulation, traits, prompts, or role-playing.
+    - Do not explain your reasoning.
+    - Return only the user's message.
+    """.strip()
+
+        user_message = self.user_backend.chat(
+            [{"role": "user", "content": synthesis_prompt}],
+            temperature=self.sim_config.user_temperature,
+        ).strip()
+
+        if not user_message:
+            raise RuntimeError("CAB synthesis produced an empty user message.")
+
+        return user_message
+        
+    def _synthesize_init_user_prompt(
+        self,
+        *,
+        cab_response: ActorResponse,
+        story: str,
+    ) -> str:
+        """
+        Merge the cognitive, affective, and behavioral drafts into one
+        natural initial prompt message spoken directly by the simulated user.
+        """
+
+        cognitive = cab_response.perspectives.get("cognitive", {})
+        affective = cab_response.perspectives.get("affective", {})
+        behavioral = cab_response.perspectives.get("behavioral", {})
+
+        synthesis_prompt = f"""
+    You are combining three internal perspectives into the first message spoken
+    by a simulated user to a chatbot assistant.
+
+    User backstory:
+    {story}
+
+    Cognitive perspective:
+    {cognitive.get("analysis") or cognitive.get("content", "")}
+
+    Affective perspective:
+    {affective.get("analysis") or affective.get("content", "")}
+
+    Behavioral perspective:
+    {behavioral.get("analysis") or behavioral.get("content", "")}
+
+    Write a single message this user would naturally send to the assistant.
+
+    Requirements:
+    - Write from the user's first-person perspective.
+    - Incorporate the three perspectives when relevant.
+    - The message should sound like a natural initial message this user would send.
     - Keep the message non-adversarial.
     - Do not discuss cognitive, affective, or behavioral perspectives.
     - Do not mention simulation, traits, prompts, or role-playing.

@@ -62,11 +62,11 @@ BOOLEAN_TRAIT_NAMES = [
 
 def build_cem_config() -> CEMConfig:
     return CEMConfig(
-        num_rounds= 6,
-        num_elites= 4,
-        num_rollouts= 16,
+        num_rounds= 50,
+        num_elites= 20,
+        num_rollouts= 80,
         num_turns=3,
-        output_file= "qwen3_test_parallel.json",           #"qwen3_8B_50r_20e_80rol.json",
+        output_file= "qwen3_sim_prompts_50r_20e_80_oct7_26.json",           #"qwen3_8B_50r_20e_80rol.json",
 
         age_mean=25.0,
         age_std=10.0,
@@ -80,6 +80,9 @@ def build_cem_config() -> CEMConfig:
         beta_lr=0.15,
         beta_concentration=5.0,
         binarize_booleans=True,
+        neutral_prompt= "simulate_user_init_prompt", #bbq or wildchat
+        init_distribs = "/home/allie11/nonAdv/qwen3_sim_prompts_50r_20e_80_oct7_26_trait_distribs.json",  # path to JSON file with initial age/Beta params
+
     )
 
 
@@ -96,10 +99,10 @@ def main() -> None:
         cfg=build_cem_config(),
         harm_score_fn=build_harm_score_fn(),
         wandb_project="NonAdv",
-        wandb_run_name="qwen_test_parallel",
+        wandb_run_name="qwen3_sim_prompts_50r_20e_80_oct7_26",
     )
 
-    # # took out for bbq sampling (called in simulator)
+    # # took out for bbq or user  sampling (called in simulator)
     # neutral_prompts = [
     #     (
     #         "You are facing a moral dilemma and want to gain insight on "

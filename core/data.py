@@ -18,44 +18,38 @@ from pathlib import Path
 from typing import Any, Sequence
 
 
-DEFAULT_BBQ_DATA_DIR = Path("/home/allie11/BBQ/data")
+DEFAULT_BBQ_TRAIN = Path("/home/allie11/BBQ/split_data/train/all_train_records.jsonl")
 
 
 @lru_cache(maxsize=None)
 def load_bbq_records(
-    data_dir: str | Path = DEFAULT_BBQ_DATA_DIR,
+    data_file: str | Path = DEFAULT_BBQ_TRAIN,
 ) -> tuple[dict[str, Any], ...]:
     """
-    Load every record from all BBQ JSONL category files.
+    Load and validate all BBQ records from a single JSONL file.
 
-    Each returned record contains two extra fields:
+    Each returned record contains:
 
         _source_file:
-            Name of the JSONL file from which the record was loaded.
+            Name of the JSONL file being loaded.
 
         _record_key:
             Composite identifier formed from category and example_id.
 
-    The tuple is cached, so the files are parsed only once per Python process.
+    The result is cached, so the JSONL file is parsed only once
+    per Python process.
     """
-    directory = Path(data_dir).expanduser().resolve()
 
-    if not directory.exists():
+    path = Path(data_file).expanduser().resolve()
+
+    if not path.exists():
         raise FileNotFoundError(
-            f"BBQ data directory does not exist: {directory}"
+            f"BBQ data file does not exist: {path}"
         )
 
-    if not directory.is_dir():
-        raise NotADirectoryError(
-            f"BBQ data path is not a directory: {directory}"
-        )
-
-    jsonl_files = sorted(directory.glob("*.jsonl"))
-
-    if len(jsonl_files) != 11:
+    if not path.is_file():
         raise ValueError(
-            "Expected exactly 11 BBQ JSONL files in "
-            f"{directory}, but found {len(jsonl_files)}."
+            f"BBQ data path is not a file: {path}"
         )
 
     records: list[dict[str, Any]] = []
@@ -71,50 +65,50 @@ def load_bbq_records(
         "ans2",
     }
 
-    for path in jsonl_files:
-        with path.open("r", encoding="utf-8") as file:
-            for line_number, line in enumerate(file, start=1):
-                stripped = line.strip()
+    with path.open("r", encoding="utf-8") as file:
+        for line_number, line in enumerate(file, start=1):
 
-                if not stripped:
-                    continue
+            stripped = line.strip()
 
-                try:
-                    record = json.loads(stripped)
-                except json.JSONDecodeError as error:
-                    raise ValueError(
-                        f"Invalid JSON in {path} at line "
-                        f"{line_number}: {error}"
-                    ) from error
+            if not stripped:
+                continue
 
-                missing_fields = required_fields - record.keys()
+            try:
+                record = json.loads(stripped)
 
-                if missing_fields:
-                    raise ValueError(
-                        f"Record in {path} at line {line_number} "
-                        f"is missing fields: {sorted(missing_fields)}"
-                    )
+            except json.JSONDecodeError as error:
+                raise ValueError(
+                    f"Invalid JSON in {path} at line "
+                    f"{line_number}: {error}"
+                ) from error
 
-                # Copy it so the source data is not modified in place.
-                record = dict(record)
+            missing_fields = required_fields - record.keys()
 
-                category = str(record["category"])
-                example_id = str(record["example_id"])
-
-                record["_source_file"] = path.name
-                record["_record_key"] = (
-                    f"{category}:{example_id}"
+            if missing_fields:
+                raise ValueError(
+                    f"Record in {path} at line {line_number} "
+                    f"is missing fields: {sorted(missing_fields)}"
                 )
 
-                records.append(record)
+            record = dict(record)
+
+            category = str(record["category"])
+            example_id = str(record["example_id"])
+
+            record["_source_file"] = path.name
+
+            record["_record_key"] = (
+                f"{category}:{example_id}"
+            )
+
+            records.append(record)
 
     if not records:
         raise ValueError(
-            f"No BBQ records were loaded from {directory}."
+            f"No BBQ records were loaded from {path}."
         )
 
     return tuple(records)
-
 
 def format_bbq_prompt(record: dict[str, Any]) -> str:
     """
@@ -135,7 +129,7 @@ def format_bbq_prompt(record: dict[str, Any]) -> str:
 
 
 def sample_bbq_record(
-    data_dir: str | Path = DEFAULT_BBQ_DATA_DIR,
+    data_dir: str | Path = DEFAULT_BBQ_TRAIN,
     *,
     rng: random.Random | None = None,
 ) -> dict[str, Any]:
@@ -151,7 +145,7 @@ def sample_bbq_record(
 
 
 def sample_neutral_prompt(
-    data_dir: str | Path = DEFAULT_BBQ_DATA_DIR,
+    data_dir: str | Path = DEFAULT_BBQ_TRAIN,
     *,
     rng: random.Random | None = None,
 ) -> str:
@@ -167,7 +161,7 @@ def sample_neutral_prompt(
 
 
 def sample_neutral_prompt_with_metadata(
-    data_dir: str | Path = DEFAULT_BBQ_DATA_DIR,
+    data_dir: str | Path = DEFAULT_BBQ_TRAIN,
     *,
     rng: random.Random | None = None,
 ) -> tuple[str, dict[str, Any]]:

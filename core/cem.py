@@ -67,6 +67,11 @@ class CEMConfig:
 
     # Whether to binarize Beta samples 
     binarize_booleans: bool = True  # TODO if False, encode “degree” traits later
+    
+    neutral_prompt: str = "simulate_user_init_prompt"  # or "bbq" or "wildchat"
+    
+    init_distribs: Optional[str] = None  # path to JSON file with initial age/Beta params
+
 
 
 @dataclass
@@ -93,13 +98,73 @@ class TraitSpace:
 
 
 class TraitDistribution:
+        
     def __init__(self, cfg: CEMConfig):
         self.cfg = cfg
-        self.age_mean = cfg.age_mean
-        self.age_std = cfg.age_std
-        self.beta_params = np.ones((cfg.num_boolean_traits, 2), dtype=float)
-        self.beta_params[:, 0] *= cfg.beta_init_alpha
-        self.beta_params[:, 1] *= cfg.beta_init_beta
+        
+        # this inits the trait distribs from a JSON file if provided, otherwise uses the CEMConfig defaults
+        if self.cfg.init_distribs is not None:
+            # Resume from the LAST saved round of trait distributions
+            with open(self.cfg.init_distribs, "r", encoding="utf-8") as f:
+                distrib_history = json.load(f)
+
+            if not isinstance(distrib_history, list) or len(distrib_history) == 0:
+                raise ValueError(
+                    f"init_distribs must contain a non-empty JSON list of "
+                    f"round distributions: {self.cfg.init_distribs}"
+                )
+
+            # Use the final saved round
+            last_round = distrib_history[-1]
+            
+            # track what the current round is, for logging later
+            self.current_round = last_round.get("round", 0)
+            print(f"Resuming CEM from round {self.current_round} using init_distribs: {self.cfg.init_distribs}")
+
+            # Age distribution
+            self.age_mean = float(last_round["age"]["mean"])
+            self.age_std = float(last_round["age"]["std"])
+
+            # Boolean trait Beta distributions
+            beta_traits = last_round["beta_traits"]
+
+            if len(beta_traits) != cfg.num_boolean_traits:
+                raise ValueError(
+                    f"init_distribs contains {len(beta_traits)} boolean traits, "
+                    f"but CEMConfig.num_boolean_traits={cfg.num_boolean_traits}"
+                )
+
+            self.beta_params = np.array(
+                [
+                    [float(trait["alpha"]), float(trait["beta"])]
+                    for trait in beta_traits
+                ],
+                dtype=float,
+            )
+
+            print(
+                f"Initialized CEM trait distribution from "
+                f"{self.cfg.init_distribs}, round {last_round.get('round', 'unknown')}"
+            )
+            print(
+                f"  age_mean={self.age_mean:.4f}, "
+                f"age_std={self.age_std:.4f}"
+            )
+
+        else:
+            # Normal initialization from CEMConfig
+            self.current_round = 0
+            print("Initializing CEM trait distribution from CEMConfig defaults.")
+            self.age_mean = cfg.age_mean
+            self.age_std = cfg.age_std
+
+            self.beta_params = np.ones(
+                (cfg.num_boolean_traits, 2),
+                dtype=float,
+            )
+            self.beta_params[:, 0] *= cfg.beta_init_alpha
+            self.beta_params[:, 1] *= cfg.beta_init_beta
+    
 
     def sample(self) -> List[float]:
         age = np.random.normal(loc=self.age_mean, scale=self.age_std)
@@ -396,11 +461,11 @@ class CEMRunner:
         }
         
     # attempt to have 16 rollouts run in parallel, instead of sequentially.
-    def run_parallel(self, neutral_prompts: Optional[List[str]] = None, max_concurrent_rollouts: Optional[int] = 16) -> Dict[str, Any]:
+    def run_parallel(self, neutral_prompts: Optional[List[str]] = None, max_concurrent_rollouts: Optional[int] = 12) -> Dict[str, Any]:
 
         # loop through all rounds sequentially
-        for r in range(self.cfg.num_rounds):
-            round_idx = r + 1
+        for r in range(self.cfg.num_rounds - self.dist.current_round):
+            round_idx = self.dist.current_round + r + 1
             round_rollouts: List[RolloutRecord] = []
 
             print("\n" + "=" * 60)
@@ -417,7 +482,15 @@ class CEMRunner:
 
                 vec = self.dist.sample()
                 traits = self.trait_space.vector_to_trait_strings(vec)
-                used_neutral_prompt = sample_neutral_prompt()
+                if self.cfg.neutral_prompt == "simulate_user_init_prompt":
+                    # inside the simulator, this will generate a prompt using simvbg cab method with the user story.
+                    used_neutral_prompt = "simulate_user_init_prompt"
+                elif self.cfg.neutral_prompt == "bbq":
+                    used_neutral_prompt = "bbq"
+                elif self.cfg.neutral_prompt == "wildchat":
+                    used_neutral_prompt = "wildchat"
+                else:
+                    raise ValueError(f"Invalid neutral_prompt: {self.cfg.neutral_prompt}")
 
                 rollout_inputs.append(
                     {
